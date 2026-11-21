@@ -6,6 +6,10 @@ const KLABEL = { login: "🔓 Código de inicio de sesión", hogar: "🏠 Actual
 const token = location.pathname.split("/").filter(Boolean)[1];
 const KEY = "gh-pin-" + token;
 const EKEY = "gh-mail-" + token, PKEY = "gh-mailpin-" + token;
+// 20/11: el correo queda escrito para la próxima vez (en este celular), así no hay que teclearlo cada vez que entra desde
+// WhatsApp. Solo se completa el campo: no se abre solo y el PIN de la cuenta nunca se guarda fuera de esta pestaña.
+const LKEY = "gh-lastmail-" + token;
+const lastMail = () => { try { return localStorage.getItem(LKEY) || ""; } catch { return ""; } };
 let epin = null; // 🔐 PIN de esa cuenta (si el revendedor le puso uno)
 let pin = null, email = null, mode = "pin", name = "", timer = null, q = "", last = [], minutes = 30, platforms = [];
 /** Las plataformas reales de sus cuentas (Netflix, Disney+, Max…), no siempre «Disney+». */
@@ -23,10 +27,10 @@ function askEmail(msg = "", needPin = false) {
   clearInterval(timer);
   $("#app").innerHTML = `<div><h1>📺 ${esc(name)}</h1><p class="muted">Escribí el correo de tu cuenta y mirá tu código al toque.</p></div>
     <form class="card" id="fe"><label style="display:grid;gap:8px;color:var(--muted);font-weight:600;font-size:14px">Correo de tu cuenta
-      <input class="search" id="em" type="email" inputmode="email" autocomplete="email" autocapitalize="off" placeholder="tucuenta@correo.com" value="${esc(email || "")}" required></label>
+      <input class="search" id="em" type="email" inputmode="email" autocomplete="email" autocapitalize="off" placeholder="tucuenta@correo.com" value="${esc(email || lastMail())}" required></label>
     ${needPin ? `<label style="display:grid;gap:8px;color:var(--muted);font-weight:600;font-size:14px">🔒 PIN de esa cuenta (4 números)
       <input class="search" id="pn" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="off" placeholder="1234" required></label>` : ""}
-    <p class="err" id="e">${esc(msg)}</p><button type="submit">Ver mi código</button></form>
+    <p class="err" id="e" role="status" aria-live="polite">${esc(msg)}</p><button type="submit">Ver mi código</button></form>
     <p class="muted" style="text-align:center">El código sirve solo con tu contraseña. Si no aparece, pedilo en ${esc(plat("la app"))} y esperá unos segundos.</p>`;
   (needPin && email ? $("#pn") : $("#em")).focus();
   $("#fe").addEventListener("submit", async (ev) => {
@@ -35,7 +39,7 @@ function askEmail(msg = "", needPin = false) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return ($("#e").textContent = "Escribí un correo válido");
     const p = $("#pn")?.value.trim() || null;
     if ($("#pn") && !/^\d{4}$/.test(p || "")) return ($("#e").textContent = "El PIN son 4 números");
-    try { await loadEmail(v, p); try { sessionStorage.setItem(EKEY, v); if (p) sessionStorage.setItem(PKEY, p); else sessionStorage.removeItem(PKEY); } catch { /* */ } }
+    try { await loadEmail(v, p); try { localStorage.setItem(LKEY, v); } catch { /* */ } try { sessionStorage.setItem(EKEY, v); if (p) sessionStorage.setItem(PKEY, p); else sessionStorage.removeItem(PKEY); } catch { /* */ } }
     catch (e) { email = v; if (e.code === "PIN_NEEDED" || e.code === "BAD_PIN") askEmail(e.message, true); else $("#e").textContent = e.message; }
   });
 }
@@ -44,7 +48,7 @@ function askPin(msg = "") {
   clearInterval(timer);
   $("#app").innerHTML = `<div><h1>🔐 ${esc(name)}</h1><p class="muted">Códigos de acceso de ${esc(plat())}. Escribí el PIN de 4 números.</p></div>
     <form class="card" id="f"><div class="pin">${[0, 1, 2, 3].map((i) => `<input inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="off" aria-label="Número ${i + 1} del PIN" data-i="${i}">`).join("")}</div>
-    <p class="err" id="e">${esc(msg)}</p><button type="submit">Ver mis códigos</button></form>`;
+    <p class="err" id="e" role="status" aria-live="polite">${esc(msg)}</p><button type="submit">Ver mis códigos</button></form>`;
   const ins = [...document.querySelectorAll(".pin input")];
   ins[0].focus();
   ins.forEach((el, i) => {
@@ -101,7 +105,7 @@ function showEmail(data) {
     <div class="card">${last.length ? last.map((c) => `<div class="code"><div class="top"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><small>${ago(c.receivedAt)}</small></div>${kindHelp(c.kind)}
       ${c.code ? `<b class="v">${esc(c.code)}</b>` : ""}<small class="ksub">${esc(c.subject)}</small>
       <div class="row">${c.code ? `<button type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar código</button>` : ""}${c.link ? `<a class="btn ghost" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}</div></div>`).join("")
-      : `<div class="empty">📭 Todavía no hay código nuevo para ese correo.<br>Pedí el código en ${esc(plat("la app"))} y esperá unos segundos: aparece solo acá.</div>`}</div>
+      : `<div class="empty">📭 Todavía no hay código nuevo para ese correo.<br>Pedí el código en ${esc(plat("la app"))} y esperá unos segundos: aparece solo acá.<br>¿No aparece? Revisá que el correo esté bien escrito, igual que en tu cuenta.</div>`}</div>
     <button class="ghost" type="button" id="chg">Usar otro correo</button>`;
 }
 
@@ -141,7 +145,7 @@ document.addEventListener("click", async (ev) => {
   if (!b) return;
   if (b.dataset.copy) { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "¡Copiado! ✓"; } catch { b.textContent = b.dataset.copy; } setTimeout(() => (b.textContent = "Copiar código"), 1500); }
   if (b.id === "out") { try { sessionStorage.removeItem(KEY); } catch { /* */ } pin = null; askPin(); }
-  if (b.id === "chg") { try { sessionStorage.removeItem(EKEY); sessionStorage.removeItem(PKEY); } catch { /* */ } email = null; epin = null; clearInterval(timer); askEmail(); }
+  if (b.id === "chg") { try { sessionStorage.removeItem(EKEY); sessionStorage.removeItem(PKEY); localStorage.removeItem(LKEY); } catch { /* */ } email = null; epin = null; clearInterval(timer); askEmail(); }
 });
 document.addEventListener("input", (ev) => { if (ev.target.id === "q") { q = ev.target.value.trim(); show({ name, codes: last, minutes, platforms }); } });
 

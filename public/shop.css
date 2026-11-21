@@ -755,6 +755,14 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
    (antes eran dos etiquetas flotando que se tapaban, y la categoría se cortaba: "Inteligencia a…") */
 .pbadges{position:absolute;top:10px;left:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;z-index:2;pointer-events:none}
 .pimg .pbadges .tag,.pimg .pbadges .prib{position:static;max-width:100%;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.2}
+/* 20/11 (revisión «en el lugar del cliente»): en el celular, con una categoría larga en dos líneas más «Popular» o
+   «Últimas», la fila de etiquetas tapaba el logo (hasta 24 px a 360 px). Ahora las etiquetas van arriba, en su lugar, y
+   el logo debajo; todas las imágenes miden lo mismo para que la fila de tarjetas quede pareja. */
+@media (max-width:520px){
+  .shop:not([data-card="lista"]):not([data-card="poster"]) .pimg:has(.pbadges){height:auto;min-height:132px;padding:8px 8px 12px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px}
+  .shop:not([data-card="lista"]):not([data-card="poster"]) .pimg .pbadges{position:static;align-self:stretch}
+  .shop:not([data-card="lista"]):not([data-card="poster"]) .pimg:has(.pbadges) > :not(.pbadges){margin-block:auto}
+}
 
 /* Portada en el celular: los logos flotantes tienen su propia franja arriba y ya no pisan la etiqueta
    "GaboHub · plataforma para revendedores" */
@@ -1294,9 +1302,26 @@ html.qrg-lock,html.qrg-lock body{overflow:hidden}
 .mact .sbtn{min-height:44px}
 .mchips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
 .mchip{flex:none;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--s-line);background:transparent;color:inherit;font:inherit;font-weight:700;font-size:14px}
-.mchip small{opacity:.7}
+.mchip small{opacity:.8;font-size:12px}
 .mchip[aria-pressed="true"]{background:var(--s-accent,#ffc400);color:#111;border-color:transparent}
 .alrow{border-top:1px solid var(--s-line);padding:10px 0;display:grid;gap:8px}.altop{display:flex;justify-content:space-between;gap:8px;align-items:center}
 .alppl{display:grid;gap:4px;font-size:13px}.alppl select{min-height:44px;font-size:15px;border-radius:10px;padding:0 10px;background:transparent;color:inherit;border:1px solid var(--s-line)}
 .rmbulk{margin:6px 0;padding:8px 10px;border-radius:10px;border:1px dashed var(--s-line);font-size:14px}.rmbulk.on{border-style:solid;border-color:#1faa59;background:rgba(31,170,89,.12)}
 .pinask{display:grid;gap:8px;border:2px solid #f5b400;background:rgba(245,180,0,.10);margin-bottom:12px}.pinask .sbtn{min-height:44px}
+/* Revisión del revendedor (20/11/2026): lo que molestaba en el celular. */
+/* Lo que se trae a la vista (venta hecha, QR, formulario del PIN) no queda tapado por la barra de arriba. */
+html{scroll-padding-top:84px}
+/* Movimientos del saldo: con un detalle largo («Netflix para Rebeca Alanoca»), el monto quedaba suelto a la izquierda. */
+.line.lmov{flex-wrap:nowrap;align-items:flex-start}.line.lmov>span:first-child{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}.line.lmov>span:last-child{flex:none;white-space:nowrap}
+/* «🔒 … Te anda hasta el 14/11.»: el punto ya no queda separado ni salta de renglón. */
+.rlock{display:block}
+/* Número de códigos en los botones de la bandeja: mínimo 12 px. */
+.mchip small{font-size:12px}
+.alfilt{margin:4px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.alpaused{font-size:13px;color:var(--s-warn,#f5b400);font-weight:600}
+/* Cambiar mi PIN: actual arriba, el nuevo dos veces al lado, el error y el botón abajo. */
+.mypin{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}.mypin>label:first-child,.mypin>.mypinerr,.mypin>button{grid-column:1/-1}.mypinerr{margin:0}
+/* «Tu link: …» de Mi página: la explicación ya no se corta a mitad de palabra («cambiá / s»), solo el link largo. */
+.slugprev{word-break:normal;overflow-wrap:anywhere}.slugprev b{word-break:break-all}
+/* Precio del catálogo de revendedor: «/ 1 mes» junto y «público Bs 20» en su propio renglón. */
+.price>small:not(.usdt):not(.pub){white-space:nowrap}.price small.pub{display:block;margin-left:0}

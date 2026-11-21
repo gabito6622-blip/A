@@ -155,7 +155,7 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     // Fallas: horario y «Hablar con una persona».
     await p.goto(base + "/tienda/#fallas");
     await p.locator(".fhelp", { hasText: "Atendemos" }).waitFor();
-    assert.match(await p.locator(".fhelp").innerText(), /Atendemos de 08:00 a 22:00\.[\s\S]*Reportá en Mis cuentas → ⚠️ Reportar falla; si es urgente, escribinos por WhatsApp\.[\s\S]*Hablar con una persona/);
+    assert.match(await p.locator(".fhelp").innerText(), /Atendemos de 08:00 a 22:00\.[\s\S]*Contanos qué pasa con el formulario de abajo; si es urgente, escribinos por WhatsApp\.[\s\S]*Hablar con una persona/);
     assert.match(await p.locator(".fhelp a").getAttribute("href"), /^https:\/\/wa\.me\/59170000000\?text=/);
     assert.equal(await over(p), 0);
     await shot(p, "c3-fallas-claro");

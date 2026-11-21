@@ -273,3 +273,12 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 - Cancelar ventas mal cargadas: ord_03578 (Ale, Bs 17) y ord_03237 (Jhoel, Bs 17). Sacar Bs 100 de saldo a Aracely.
 - Marcar netgb117+cd como caída. Cargar planes Vendedor Bs 25 / Negocio Bs 49 con el cobro apagado.
 - Si el Bs 67 de renovación era solo por un día, cambiarlo en «💲 Precios del día».
+
+## Pendientes de la revisión completa (21/11/2026)
+- [P2] Inicio quedó largo (~8.500 px): plegar «Avisar: vencen en 3 días» y «Se cortaron solos» dentro de «Para hacer hoy». Decide el dueño.
+- [P2] «3 vencidos sin renovar» en Inicio vs 0 en Control → Vencidos (hora vs día); el aviso abre Control sin filtrar.
+- [P2] Confirmar qué hay delante de Railway (¿Cloudflare?) para leer bien la IP de los frenos.
+- [P2] «Popular/Top» de la tienda sin datos de ventas: quitar o basar en ventas. «Cómo comprar» más arriba.
+- [P3] Ganancia de «Mis ganancias» del revendedor: «ya cobrada» vs «real» distintas; centavos mezclados.
+- [P3] PINs débiles (1234) al elegirlo uno mismo; bloqueo del PIN del link que sobreviva reinicios.
+- [P3] Monto libre en recarga de saldo; mensajes de campo vacío en castellano; «Costo por mes» obligatorio en carga rápida.

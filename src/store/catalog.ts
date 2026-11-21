@@ -402,6 +402,9 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allow
   if (isStaff(actor)) {
     authorize(actor, "customer.manage");
     if (c.kind === "reseller" && actor.role === "seller") throw new DomainError("FORBIDDEN", "Solo admin u owner crean revendedores");
+    // Auditoría 20/11/2026: Atención no le da a un cliente final los precios de revendedor (al editar ya no podía).
+    // Las listas por país (Panamá, Paraguay…) sí las puede elegir, como siempre.
+    if (actor.role === "seller" && c.priceGroupId === "revendedor") throw new DomainError("FORBIDDEN", "Solo admin u owner le dan precios de revendedor a un cliente");
   } else {
     authorize(actor, "customer.create_own");
     if (c.kind === "reseller" || c.priceGroupId) throw new DomainError("FORBIDDEN", "Un revendedor solo crea clientes finales");
@@ -458,6 +461,15 @@ export function updateCustomer(e: Engine, actor: Actor, customerId: Id, patch: C
   return e.tx(() => {
     const c = e.get("customers", customerId);
     const changed: string[] = [];
+    // Auditoría 20/11/2026: el número y el correo son la llave para entrar (PIN, «Olvidé mi contraseña»). Atención
+    // (seller) no entrega accesos de revendedores ni de clientes con saldo; tampoco puede cambiarles el número o el
+    // correo, porque con eso pedía el link de «Olvidé mi contraseña» a su propio correo y entraba a esa cuenta.
+    if (actor.role === "seller") {
+      const phoneChanges = patch.phone !== undefined && normalizePhone(patch.phone) !== c.phone;
+      const emailChanges = patch.email !== undefined && (patch.email || "") !== (c.email ?? "");
+      const withMoney = c.kind === "reseller" || e.s.ledger.reduce((t, l) => (l.customerId === c.id ? t + l.amount : t), 0) > 0;
+      if ((phoneChanges || emailChanges) && withMoney) throw new DomainError("FORBIDDEN", "El número o el correo de un revendedor o de un cliente con saldo los cambia el dueño o un admin");
+    }
     if (patch.phone !== undefined) {
       const phone = normalizePhone(patch.phone);
       if (phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Teléfono inválido");

@@ -1010,3 +1010,9 @@ Ver `docs/BACKLOG.md` (estado ⏳): Mis cuentas del revendedor largo, vista prev
 - Pruebas nuevas: agregar perfil por API, bandeja de códigos tipo correo, link por cuenta (tope, historial, pausa, cambiar link, personas), links lindos, tasa de costo, vender fácil, cuenta nueva en Vender, menú con atajos, descuento por cantidad, elegir PIN propio.
 - Recorrido «como el dueño» (Playwright, 390 px, datos ficticios): revendedor nuevo (2 datos, 1 toque), venta con precio, fecha y clave (4 datos, 2 toques), renovar desde Control.
 - No probado con datos reales: la vista real de Aracely (no se entró a su panel para no cambiarle el PIN; se usó una copia con sus precios).
+
+## 2026-11-21 · Revisión completa (4 equipos integrados en `auditoria`)
+- `npm test`: **949 pruebas, 948 pasan**; la que falló (`hub-inventario`) pasa sola 2 de 2 veces.
+- Pruebas nuevas: `auditoria-seguridad` (10), `cliente-final`, `revendedor-comodo` (3), `duenio-dia` (2).
+- Seguridad: 343 llamadas de un revendedor a 49 rutas con ids de otro: ninguna devolvió datos ajenos.
+- Revisión visual a 360 y 390 px, claro y oscuro: panel de 12 botones chicos y 26 títulos cortados a 0 y 0.

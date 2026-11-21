@@ -5,6 +5,8 @@
 .acard details.more select,.acard details.more input,.acard details.more button{min-height:44px;max-width:100%}
 .acard details.more form.inline{flex-wrap:wrap}
 .acard details.more select{flex:1 1 100%;min-width:0;font-size:14px}
+/* 20/11: el campo «Motivo» (Cuenta caída) medía 297 px de ancho mínimo y, al abrirlo, la tarjeta crecía y se cortaba a la derecha. */
+.acard details.more input:not([type=checkbox]):not([type=radio]){min-width:0;width:140px;flex:1 1 140px}
 .acost b{font-weight:700}
 /* Error junto al campo (carga de cuentas). */
 .perr-inline{display:block;color:var(--bad);font-size:13px;font-weight:600;margin-top:4px}

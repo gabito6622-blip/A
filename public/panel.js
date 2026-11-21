@@ -17,6 +17,7 @@ import { initDescargas, descargasEnsure, descargasView, descargasClick, descarga
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
 import { cargarCard } from "/panel-cargar.js";
 import { secretaryView } from "/secretaria.js";
+import { fitTitle } from "/titulo-ajuste.js"; // título de arriba entero en el celular
 import { splitTxt, cutTxt, controlRenew, swapOptionsHtml, confirmSwap, initSellNew, sellNewHint, sellCustomer, sellDupCheck, renewFlow, switchPlatHtml, setRerender } from "/dia.js";
 import { matches } from "/buscar.js";
 import { selfCodesCard } from "/panel-codigos-solos.js";
@@ -1166,7 +1167,7 @@ const V = {
         ${canReview() ? costRow(a) : ""}
         <div class="pmap">${vivos.map((s) => { const st = slotState(s), dl = slotDL(s); return `<button type="button" class="pdot p-${st}${canReview() ? " clk" : ""}" ${canReview() ? `data-slotact="${esc(s.id)}"` : "disabled"} title="${esc(s.label)}: ${estadoTxt[s.status] ?? s.status}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}${dl !== null ? ` (${dl < 0 ? "venció" : dl + "d"})` : ""}` : ""}">${icon("user")}</button>`; }).join("")}</div>
         ${(() => { const occ = vivos.filter((s) => s.status === "assigned" && s.customerName); if (!occ.length) return ""; return `<details class="occ"><summary>👥 Quién está en esta cuenta <small class="muted">(${occ.length} ocupado${occ.length === 1 ? "" : "s"})</small></summary><div class="occlist">${occ.map((s) => { const dl = slotDL(s); return `<div class="occrow"><span><b>${esc(s.label)}</b> → ${esc(s.customerName)}</span>${dl !== null ? `<span class="pp pp-${dl < 0 ? "bad" : dl <= 7 ? "warn" : "ok"}">${dl < 0 ? "venció" : dl === 0 ? "hoy" : `${dl}d`}</span>` : ""}</div>`; }).join("")}</div></details>`; })()}
-        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<button class="pbtn sm" type="button" data-rotate="${esc(a.id)}" title="${a.passwordChangedAt ? `Última vez: ${fdate(a.passwordChangedAt)}` : "Nunca cambiada desde acá"}">🔑 Cambié la clave</button>` : ""}${accButtons(a)}${!a.fallen && a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form>${fallOnlyBtn(a)}</details>` : ""}${moveAllForm(a)}</footer>` : ""}
+        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<button class="pbtn sm" type="button" data-rotate="${esc(a.id)}" title="${a.passwordChangedAt ? `Última vez: ${fdate(a.passwordChangedAt)}` : "Nunca cambiada desde acá"}">🔑 Cambié la clave</button>` : ""}${accButtons(a)}${!a.fallen && a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" value="Se cayó" aria-label="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form>${fallOnlyBtn(a)}</details>` : ""}${moveAllForm(a)}</footer>` : ""}
       </article>`;
     };
     // Etapa 7 (12/11/2026): "Por plataforma" agrupa las MISMAS tarjetas por producto (Plataforma → Cuenta →
@@ -1204,7 +1205,7 @@ const V = {
           <td>${esc(a.supplierId === "propias" ? "Propia (tuya)" : suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</td><td>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</td>
           <td>${a.status === "active" ? pill("Activa", "ok") : pill("Retirada", "mute")}</td>
           <td>${canReview() ? `<button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>` : ""}
-          ${a.status === "active" && canReview() ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form>${fallOnlyBtn(a)}</details>` : ""}</td></tr>`;
+          ${a.status === "active" && canReview() ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" value="Se cayó" aria-label="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form>${fallOnlyBtn(a)}</details>` : ""}</td></tr>`;
       }), "Todavía no cargaste cuentas.")}</div></section>${alertsCard}${caidasCard}${slotCard}${editCard}${cxPay}`;
   },
 
@@ -1234,7 +1235,9 @@ const V = {
     P.tab.prodKind = Object.fromEntries(products.map((p) => [p.id, p.kind]));
     const guessN = (id) => { const p = products.find((x) => x.id === id); if (p?.profileDefaults?.length) return p.profileDefaults.length; if (p?.kind === "full_account") return 1; const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
     const lastProd = products.some((p) => p.id === last.productId) ? last.productId : products[0].id;
-    return `${pfCard}${iptvCard}<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
+    // 20/11: «Cargar cuenta» abría con «Compré un perfil» (un formulario de 1.000 px) y la carga rápida quedaba abajo.
+    // Ahora va primero la carga rápida; «➕ Compré un perfil» sigue igual (su botón baja directo a su formulario).
+    return `${iptvCard}<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
       <form class="form" id="quickForm">
         <label>Producto<select name="productId">${products.map((p) => opt(p.id, p.name, p.id === lastProd)).join("")}</select></label>
         <label>Perfiles<input name="n" type="number" min="1" max="20" value="${guessN(lastProd)}"></label>
@@ -1244,7 +1247,7 @@ const V = {
         <label style="grid-column:1/-1">Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
         <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>${paidNowExtra()}
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Agregar cuenta (${guessN(lastProd)} perfiles libres)</button></form>
-      <p class="muted" style="margin:0">Recuerda el producto, el proveedor y el costo de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
+      <p class="muted" style="margin:0">Recuerda el producto, el proveedor y el costo de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>${pfCard}
       <section class="card"><h2>Cargar una cuenta <small>· con todos los detalles</small></h2><form class="form" id="accForm">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label>
       <label>Email de la cuenta<input name="email" type="email" required></label><label>Contraseña<input name="password" required></label>
@@ -1887,6 +1890,9 @@ const AUD_VERB = {
 };
 const audNum = (id) => { const m = String(id ?? "").match(/(\d+)$/); return m ? "#" + Number(m[1]) : ""; };
 function auditText(a, maps) {
+  // 20/11: Inicio («🏠 Para hacer hoy») lo llama sin mapas (no pide clientes ni usuarios). Antes eso rompía con
+  // cualquier movimiento de las últimas 24 h y la lista del día no aparecía nunca. Sin mapas: «vos» por tu nombre.
+  maps = maps ?? { staff: P.me?.id ? { [P.me.id]: P.me } : {}, cust: {}, prod: {} };
   // Quién
   let who = "Alguien", role = AUD_ROLE[a.role] ?? a.role ?? "";
   const aid = String(a.actorId ?? "");
@@ -2511,7 +2517,7 @@ async function render() {
   P.lastPend = pend;
   $("#menu").innerHTML = menuHtml(pend);
   const [ti, tt] = TITLE[P.view];
-  $("#ptitle").innerHTML = icon(ti) + tt;
+  $("#ptitle").innerHTML = icon(ti) + tt; fitTitle($("#ptitle"));
   // Barra de abajo: Inicio, Clientes, Vender, Inventario y Más (lo demás se marca en "Más").
   const INV = ["cuentas", "carga", "reubicar", "codigos", "productos", "cupones", "proveedores"];
   const bnavFor = ["inicio", "vender", "clientes"].includes(P.view) ? P.view : INV.includes(P.view) ? "cuentas" : P.view === "fallas" && P.me && !canReview() ? "fallas" : "more";
@@ -2780,10 +2786,15 @@ function sellSummary() {
   const pay = f.payStatus.value === "pendiente" ? "⏳ Pendiente" : "✅ Pagado";
   const extra = `${qty > 1 ? ` · ${qty}×` : ""}${months > 1 ? ` · ${months} meses` : ""}`;
   const code = (f.couponCode?.value || "").trim().toUpperCase();
-  const q = code && sellQuote.key === `${cid}|${f.productId.value}|${qty}|${code}|${months}` ? sellQuote.r : null;
-  if (code && !q) quoteSell(cid, f.productId.value, qty, code, months);
+  // 20/11: el total sale SIEMPRE del servidor (antes solo con cupón). A un revendedor el resumen decía «Bs 35»
+  // (precio de la tienda) y se le cobraba su lista (Bs 25): ahora dice lo mismo que se cobra.
+  const q = sellQuote.key === `${cid}|${f.productId.value}|${qty}|${code}|${months}` ? sellQuote.r : null;
+  if (!q) quoteSell(cid, f.productId.value, qty, code, months);
   const custom = f.priceBs?.value !== "" && f.priceBs?.value != null ? Math.round(+f.priceBs.value * 100) : null;
-  const total = custom !== null && custom >= 0 ? custom : q?.coupon ? q.total : price * qty * months;
+  const quoted = Number.isFinite(q?.total) ? q.total : null, list = price * qty * months;
+  const total = custom !== null && custom >= 0 ? custom : quoted ?? list;
+  const money = (c) => (custom === null && q?.currency === "USD" ? usd(c) : bs(c));
+  if (f.priceBs) f.priceBs.placeholder = quoted !== null && q?.currency !== "USD" ? `${(quoted / 100).toString().replace(".", ",")} (su precio)` : "precio normal";
   const until = f.until?.value ? f.until.value.split("-").reverse().join("/") : "";
   box.hidden = false;
   box.innerHTML = `<div class="sumline"><span>Le vendés a</span><b>${esc(first)}</b></div>
@@ -2791,8 +2802,10 @@ function sellSummary() {
     <div class="sumline"><span>Cobro</span><b>${method} · ${pay}</b></div>
     ${until ? `<div class="sumline"><span>📅 Vence el</span><b>${until}</b></div>` : ""}
     ${code ? `<div class="sumline"><span>🏷️ Cupón ${esc(code)}</span><b>${!q ? "revisando…" : q.coupon ? `−${bs(q.coupon.amount)}` : `<span class="cupst bad">${esc(q.couponError)}</span>`}</b></div>` : ""}
-    <div class="sumtot"><span>Total a cobrar</span><b>${bs(total)}</b></div>`;
-  btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(total)}`;
+    ${custom === null && quoted !== null && !q?.coupon && quoted !== list && q?.currency !== "USD" ? `<div class="sumline"><span>💲 Su precio</span><b>${bs(quoted)} <small class="muted">(en la tienda ${bs(list)})</small></b></div>` : ""}
+    ${q?.missingListPrice?.length ? `<div class="sumline"><span>⚠️ Sin precio de revendedor</span><b>paga el de la tienda</b></div>` : ""}
+    <div class="sumtot"><span>Total a cobrar</span><b>${custom === null && !q ? "…" : money(total)}</b></div>`;
+  btn.innerHTML = `${icon("cart")}Vender a ${esc(first)}${custom === null && !q ? "" : ` · ${money(total)}`}`;
 }
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") { P.tab.sellCustomer = ev.target.value; sellNewHint(ev.target.form); } sellSummary(); } });
 // Vender: «➕ Crear "<nombre>"» ahí mismo (dia.js). El cliente nuevo entra a la lista y la venta sigue.
@@ -3970,7 +3983,8 @@ document.addEventListener("submit", async (ev) => {
         }
         P.tab.rlink = await resellerKit(c.id, c.name, c.phone, slug);
         toast(pageErr ? `Revendedor creado, pero su página no: ${pageErr}` : f.plan.value === "page" ? "Revendedor creado con su página" : "Revendedor creado (solo panel)");
-        await render(); scrollTo(0, 0);
+        // 20/11: la tarjeta «✅ Listo · Mandarle todo por WhatsApp» quedaba debajo de Cobrar e Invitar, fuera de la vista.
+        await render(); scrollTo(0, 0); $("#rsent")?.scrollIntoView({ block: "start" });
       } catch (e) { toast(e.message); btn.disabled = false; }
     } else if (f.id === "bulkRes") {
       const pct = Number(f.pct.value);

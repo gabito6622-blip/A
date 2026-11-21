@@ -149,6 +149,9 @@ export function publicCodes(e: Engine, token: unknown) {
   const now = e.now(), win = e.opts.codeVisibleMinutes * MINUTE;
   const found = e.s.codes
     .filter((c) => c.to === t.email && c.receivedAt >= t.since && now - c.receivedAt <= win)
+    // Auditoría 20/11/2026: el código para CAMBIAR EL CORREO de la cuenta nunca sale por el link del cliente (con él se
+    // queda con la cuenta entera y deja afuera a los otros perfiles). Igual que en el link de códigos (codes.ts → codesOf).
+    .filter((c) => c.kind !== "cambio_correo" && classifyCode(c.subject, "") !== "cambio_correo")
     .sort((x, y) => y.receivedAt - x.receivedAt)
     .slice(0, MAX_CODES);
   e.tx(() => {

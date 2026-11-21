@@ -577,7 +577,9 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
     .filter((p) => !indep && p.published && mine(c!.resellerPrices?.[p.id]) !== undefined && (!show || show.has(p.id)))
     .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, kind: p.kind, durationDays: p.durationDays, price: mine(c!.resellerPrices![p.id])!, available: Math.min(stock[p.id] ?? 0, 20), ...(p.forWhom ? { forWhom: p.forWhom } : {}) }));
   const look: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "qrFileRef", "payNote", "products", "whatsapp", "title", "combos", "comboDiscounts", "coupons"].includes(k)) look[k] = v;
+  // Auditoría 20/11/2026: tampoco salen los datos de su suscripción a GaboHub (hasta cuándo pagó, si es prueba o si
+  // quedó suspendido): son entre el revendedor y la tienda, no para sus clientes.
+  for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "qrFileRef", "payNote", "products", "whatsapp", "title", "combos", "comboDiscounts", "coupons", "paidUntil", "suspended", "trial"].includes(k)) look[k] = v;
   // Los combos propios del revendedor se muestran como tarjetas de catálogo.
   const nameOf = (id: Id) => e.s.products[id]?.name ?? id;
   // Combos de sus productos propios (también los del independiente): precio en su moneda y disponibles según sus cupos.

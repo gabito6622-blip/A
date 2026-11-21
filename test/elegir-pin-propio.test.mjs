@@ -37,7 +37,7 @@ test("PIN dado por la tienda → aviso «Elegí tu propio PIN»; al cambiarlo, s
     assert.ok((await p.locator("[data-pinfocus]").boundingBox()).height >= 44);
     await p.locator("[data-pinfocus]").click();
     const f = p.locator("#myPin"); await f.waitFor({ state: "visible" });
-    await f.locator("[name=current]").fill(pin); await f.locator("[name=pin]").fill("4826");
+    await f.locator("[name=current]").fill(pin); await f.locator("[name=pin]").fill("4826"); await f.locator("[name=pin2]").fill("4826"); // 20/11: el PIN nuevo se escribe dos veces
     await f.locator("[type=submit]").click();
     await p.waitForFunction(() => !document.querySelector(".pinask"), null, { timeout: 10_000 });
     assert.equal((await (await fetch(base + "/api/me", { headers: { cookie: ck } })).json()).pinFromStore, undefined, "ya lo eligió él");

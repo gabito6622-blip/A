@@ -66,7 +66,8 @@ export function hablarSync() {
 
 /* Que nunca tape un precio, «Agregar» ni la barra de abajo: si al desplazarse queda encima de uno, se esconde
    (sin poder tocarlo por error) y vuelve apenas hay lugar libre. */
-const CRIT = "[data-add], .tkbtn, .ccmore, .tkend > b, .price, .pbtns .sbtn, .ccopt, .ccdev, .bnav, .cbar, .cbanner";
+// 20/11: también «Copiar» (códigos y datos), Renovar, Reportar falla, los filtros de Mis cuentas y los botones de la bandeja.
+const CRIT = "[data-add], .tkbtn, .ccmore, .tkend > b, .price, .pbtns .sbtn, .ccopt, .ccdev, .bnav, .cbar, .cbanner, [data-copy], [data-renew], [data-falla], .cats > button, .mchip, .mcode";
 export function hablarTapa(a = document.getElementById("hablar")) {
   if (!a) return [];
   const r = a.getBoundingClientRect();
