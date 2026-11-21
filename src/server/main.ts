@@ -42,7 +42,7 @@ const app = createApp({
   secureCookies: !!origin?.startsWith("https://"),
   staticDir,
   metaBaseUrl: env.GS_META_BASE_URL,
-  trustProxy: env.GS_TRUST_PROXY === "1",
+  trustProxy: env.GS_TRUST_PROXY === "cloudflare" ? "cloudflare" : env.GS_TRUST_PROXY === "1",
   dataKey: env.GS_DATA_KEY || undefined,
   vapid,
   anthropicApiKey: env.ANTHROPIC_API_KEY || undefined,

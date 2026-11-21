@@ -122,7 +122,7 @@ export interface AppConfig {
   /** Clave para cifrar las contraseñas de las cuentas en la base (GS_DATA_KEY). */
   dataKey?: string;
   /** true detrás de un proxy de confianza (Render, Railway, Cloudflare): usa X-Forwarded-For para los límites. */
-  trustProxy?: boolean;
+  trustProxy?: boolean | "cloudflare";
 }
 
 const HOUR = 3_600_000;
@@ -566,7 +566,13 @@ export function createApp(cfg: AppConfig): App {
     const id = c.actor!.customerId!;
     const stored = db.getSecret(`loginpin:${id}`);
     if (stored && !verifyPassword(loginPinKey(id, String(c.body?.current ?? "")), stored)) throw new HttpError(401, "BAD_PIN", "El PIN actual no es correcto");
-    setLoginPin(id, String(c.body?.pin ?? "").trim());
+    // 21/11/2026: nada de PINs fáciles de adivinar (1111, 1234, 4321, 1212…) cuando lo elige uno mismo.
+    const np = String(c.body?.pin ?? "").trim();
+    if (/^\d{4}$/.test(np)) {
+      const d = np.split("").map(Number), up = d.every((x, i) => !i || x === d[i - 1] + 1), down = d.every((x, i) => !i || x === d[i - 1] - 1);
+      if (new Set(d).size === 1 || up || down || (np.slice(0, 2) === np.slice(2) && d[0] !== d[1] && new Set(d).size === 2) || ["1004", "2000", "1990", "2580", "0852"].includes(np)) throw new HttpError(400, "WEAK_PIN", "Ese PIN es muy fácil de adivinar. Elegí otro (que no sea 1111, 1234, 4321 ni 1212)");
+    }
+    setLoginPin(id, np);
     db.setSecret(`pinby:${id}`, "self", now());
     // Cambiar el PIN deja afuera a los otros aparatos (este sigue adentro).
     const closed = db.deleteSessionsOf(id, c.session?.tokenHash);
@@ -2918,7 +2924,11 @@ export function createApp(cfg: AppConfig): App {
     // HSTS solo con HTTPS de verdad (en local con http rompería el acceso).
     if (cfg.secureCookies) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     const url = new URL(req.url ?? "/", "http://local");
-    const fwd = cfg.trustProxy ? String(req.headers["cf-connecting-ip"] ?? req.headers["x-forwarded-for"] ?? "").split(",")[0].trim() : "";
+    // 21/11/2026 (auditoría): la tienda está directo en Railway, sin Cloudflare. Railway AGREGA la IP real al FINAL de
+    // X-Forwarded-For; lo de adelante lo puede inventar cualquiera y servía para saltarse los frenos. Se usa la última.
+    // CF-Connecting-IP solo si se configura GS_TRUST_PROXY=cloudflare (y entonces el servidor tiene que estar detrás de Cloudflare).
+    const xff = String(req.headers["x-forwarded-for"] ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+    const fwd = !cfg.trustProxy ? "" : cfg.trustProxy === "cloudflare" ? String(req.headers["cf-connecting-ip"] ?? "").trim() || (xff.at(-1) ?? "") : (xff.at(-1) ?? "");
     const ip = fwd || (req.socket.remoteAddress ?? "?");
     try {
       if (!url.pathname.startsWith("/api/")) {

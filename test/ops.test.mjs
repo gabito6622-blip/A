@@ -58,9 +58,12 @@ describe("IP real detrás de un proxy", () => {
   test("con trustProxy cada cliente real tiene su propio límite", async () => {
     const s = await start({ trustProxy: true });
     try {
-      for (let i = 0; i < 11; i++) assert.equal((await askCode(s, i, { "x-forwarded-for": `10.0.0.${i}, 172.16.0.1` })).status, 200);
+      // 21/11/2026: Railway agrega la IP real AL FINAL; lo de adelante lo inventa quien quiera y no cuenta.
+      for (let i = 0; i < 11; i++) assert.equal((await askCode(s, i, { "x-forwarded-for": `172.16.0.1, 10.0.0.${i}` })).status, 200);
       for (let i = 11; i < 21; i++) assert.equal((await askCode(s, i, { "x-forwarded-for": "10.9.9.9" })).status, 200);
       assert.equal((await askCode(s, 21, { "x-forwarded-for": "10.9.9.9" })).status, 429);
+      // El tramposo que inventa una IP distinta adelante en cada pedido igual queda frenado (cuenta la de Railway).
+      assert.equal((await askCode(s, 22, { "x-forwarded-for": "99.99.99.22, 10.9.9.9" })).status, 429);
     } finally { await s.stop(); }
   });
 });
@@ -283,11 +286,12 @@ describe("entrar con número y PIN (sin bot de WhatsApp)", () => {
       const ck = ok.headers.get("set-cookie").split(";")[0];
       const me = await (await s.call("GET", "/api/me", ck)).json();
       assert.equal(me.name, "Ari");
-      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: "9999", pin: "4321" })).status, 401, "pide el PIN actual");
-      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: pin, pin: "4321" })).status, 200);
-      assert.equal((await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "4321" })).status, 200);
+      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: "9999", pin: "4826" })).status, 401, "pide el PIN actual");
+      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: pin, pin: "4826" })).status, 200);
+      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: "4826", pin: "1234" })).status, 400, "21/11: PIN fácil (1234) no se acepta");
+      assert.equal((await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "4826" })).status, 200);
       for (let i = 0; i < 5; i++) await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "0001" });
-      assert.equal((await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "4321" })).status, 429);
+      assert.equal((await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "4826" })).status, 429);
     } finally { await s.stop(); }
   });
 });

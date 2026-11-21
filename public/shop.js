@@ -725,7 +725,7 @@ function renderInner() {
       ${brandStrip()}
       ${trustBand()}
       ${pub.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Catálogo digital</span><h2>${featTitle}</h2></div>${L === "catalogo" ? "" : `<button class="sbtn" type="button" data-s="catalogo">Ver todos ${icon("arrow")}</button>`}</div>
-      <div class="pgrid">${pub.slice(0, nFeat).map((p, i) => card(p, i === 0 ? "🔥 Popular" : i === 1 && L !== "minimal" ? "⭐ Top" : "")).join("")}</div></section>` : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
+      <div class="pgrid">${pub.slice(0, nFeat).map((p, i) => card(p, "") /* 21/11/2026: sin «Popular»/«Top» inventados (no salían de ventas reales) */).join("")}</div></section>` : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
       ${hasCombos() ? `<button class="cbanner" type="button" data-s="asesor"><b>🧮 ¿No sabés cuál elegir?</b><span>Usá el Asesor: decís tu presupuesto y te recomendamos el combo ideal.</span>${icon("arrow")}</button>` : ""}
       ${SLUG ? "" : reviewsSection()}
       ${faqSection()}
