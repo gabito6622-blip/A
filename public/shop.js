@@ -27,6 +27,7 @@ import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResu
 import { initHablar, hablarSync, hablarFicha } from "/hablar.js"; // 💬 «Hablar con una persona» siempre a mano
 import { initDespuesPago, guestPayHtml, revisionHtml, rechazosArriba, historialLinea, pedidoNombre, pagoAutoRefresh, datosText, pedidoListoHtml } from "/despues-pago.js";
 import { planInit, loadPlan, planCard, renewAllBox, planQrBox, planQrIds, svcTags, svcComboNote, planAfterRender } from "/plan-mensual.js";
+import { formError, mailChipLabels, prettyPhone } from "/cliente-final.js";
 import { fallasHelp, faqExtra, recoverHtml, pinHelpHtml, noLoginCode, switchLink, initClienteAyuda, REPORT_WHERE } from "/cliente-ayuda.js";
 import { initA11y, a11yView } from "/a11y-tienda.js";
 import { kindHelp } from "/codigos-ayuda.js";
@@ -338,7 +339,7 @@ const hasCombos = () => (S.catalog ?? []).some((p) => p.kind === "combo" && p.co
 function availBar() {
   const wa = S.settings.whatsapp, hours = (S.settings.storeHours ?? "").trim();
   if (!wa && !hours) return "";
-  return `<div class="availbar"><span>🟢 ${hours ? esc(hours) : "Te respondemos por WhatsApp"}${hours && wa ? " · respondemos por WhatsApp" : ""}</span>${wa ? `<a href="${waLink(wa, "Hola, tengo una consulta 👋")}" target="_blank" rel="noopener">💬 +${esc(String(wa).replace(/\D/g, ""))}</a>` : ""}</div>`;
+  return `<div class="availbar"><span>🟢 ${hours ? esc(hours) : "Te respondemos por WhatsApp"}${hours && wa ? " · respondemos por WhatsApp" : ""}</span>${wa ? `<a href="${waLink(wa, "Hola, tengo una consulta 👋")}" target="_blank" rel="noopener">💬 ${esc(prettyPhone(wa))}</a>` : ""}</div>`;
 }
 /* Preguntas frecuentes (acordeón): saca dudas antes de comprar. */
 const FAQ_DEFAULT = [
@@ -679,7 +680,7 @@ function inboxHtml() {
   const pick = (S.data.cbox ?? "").toLowerCase();
   const list = all.filter((c) => (!pick || (c.to ?? "").toLowerCase() === pick) && (!q || `${c.to} ${c.product ?? ""}`.toLowerCase().includes(q)));
   const chip = (e, label) => `<button class="mchip" type="button" data-cbox="${esc(e)}" aria-pressed="${pick === e}">${esc(label)}${e ? ` <small>${all.filter((c) => (c.to ?? "").toLowerCase() === e).length || ""}</small>` : ""}</button>`;
-  const chips = mails.length > 1 ? `<div class="mchips" role="group" aria-label="Elegí la cuenta">${chip("", "📥 Todas")}${mails.map((e) => chip(e, e.split("@")[0])).join("")}</div>` : "";
+  const chips = mails.length > 1 ? `<div class="mchips" role="group" aria-label="Elegí la cuenta">${chip("", "📥 Todas")}${(isReseller() ? mails.map((e) => e.split("@")[0]) : mailChipLabels(mails, S.data.services, all)).map((l, i) => chip(mails[i], l)).join("")}</div>` : "";
   const row = (c) => `<div class="mrow${Date.now() - c.receivedAt < 5 * 6e4 ? " mnew" : ""}"><span class="mav" aria-hidden="true">${esc((c.product || c.to || "?").trim()[0].toUpperCase())}</span><div class="mbody"><div class="mtop"><b>${esc((c.product || "Código").replace(/ \(alquiler revendedores\)/, ""))}</b><small>${agoTxt(c.receivedAt)}</small></div><small class="mto">${esc(c.to)}</small><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span>${kindHelp(c.kind)}</div><div class="mact">${c.code ? `<b class="mcode">${esc(c.code)}</b><button class="sbtn sm pri" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}</div></div>`;
   return `<div class="sbox minbox"><h2>${icon("mailbox")}Bandeja de entrada <span class="spill sp-mute">${all.length}</span></h2><p class="empty mlive">🟢 Se actualiza sola · no hace falta recargar</p>${chips}${mails.length > 12 ? `<input id="cq" class="rsearch" placeholder="Buscar por correo (ej. netscz108)" value="${esc(S.data.cq ?? "")}" aria-label="Buscar correo">` : ""}${list.length ? list.map(row).join("") : `<p class="empty">${all.length ? "Todavía no llegó nada a esta cuenta. Pedí el código en la app y aparece acá solo." : "Bandeja vacía. Pedí el código en la app y aparece acá solo, en unos segundos."}</p>`}</div>`;
 }
@@ -2335,7 +2336,7 @@ async function submitCheckout(form) {
     let file, ref;
     if (pm === "qr" || pm === "usdt" || pm === "local") {
       ref = form.ref.value.trim();
-      if (!form.file.files[0] || !ref) throw new Error(pm === "usdt" ? "Subí la captura del pago y pegá el hash o número de la transacción" : "Subí la foto del comprobante y escribí el número de operación");
+      if (!form.file.files[0] || !ref) throw Object.assign(new Error(pm === "usdt" ? "Subí la captura del pago y pegá el hash o número de la transacción" : !form.file.files[0] && ref ? "Falta la foto del comprobante: tocá «📷 Elegir imagen»" : form.file.files[0] ? "Falta el número de operación: está en tu comprobante" : "Subí la foto del comprobante y escribí el número de operación"), { field: form.file.files[0] ? form.ref : form.file });
       file = await fileToBase64(form.file.files[0]);
     }
     const order = await api("POST", "/api/orders", {
@@ -2393,10 +2394,7 @@ async function submitCheckout(form) {
   } catch (e) {
     btn.disabled = false;
     btn.textContent = "Finalizar pedido";
-    const box = document.createElement("div");
-    box.className = "err";
-    box.textContent = e.code === "OUT_OF_STOCK" ? "Se agotó uno de los productos. Revisá tu carrito." : e.message;
-    form.prepend(box);
+    formError(form, e.code === "OUT_OF_STOCK" ? "Se agotó uno de los productos. Revisá tu carrito." : e.message, e.field);
     if (e.code === "OUT_OF_STOCK") { await refresh(); }
   }
 }
