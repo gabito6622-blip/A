@@ -402,9 +402,9 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allow
   if (isStaff(actor)) {
     authorize(actor, "customer.manage");
     if (c.kind === "reseller" && actor.role === "seller") throw new DomainError("FORBIDDEN", "Solo admin u owner crean revendedores");
-    // Auditoría 20/11/2026: igual que al editar, Atención no elige la lista de precios (podía crear un cliente final
-    // con los precios de revendedor).
-    if (actor.role === "seller" && c.priceGroupId && c.priceGroupId !== "final") throw new DomainError("FORBIDDEN", "Solo admin u owner eligen la lista de precios de un cliente");
+    // Auditoría 20/11/2026: Atención no le da a un cliente final los precios de revendedor (al editar ya no podía).
+    // Las listas por país (Panamá, Paraguay…) sí las puede elegir, como siempre.
+    if (actor.role === "seller" && c.priceGroupId === "revendedor") throw new DomainError("FORBIDDEN", "Solo admin u owner le dan precios de revendedor a un cliente");
   } else {
     authorize(actor, "customer.create_own");
     if (c.kind === "reseller" || c.priceGroupId) throw new DomainError("FORBIDDEN", "Un revendedor solo crea clientes finales");
