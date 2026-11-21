@@ -1300,3 +1300,8 @@ html.qrg-lock,html.qrg-lock body{overflow:hidden}
 .alppl{display:grid;gap:4px;font-size:13px}.alppl select{min-height:44px;font-size:15px;border-radius:10px;padding:0 10px;background:transparent;color:inherit;border:1px solid var(--s-line)}
 .rmbulk{margin:6px 0;padding:8px 10px;border-radius:10px;border:1px dashed var(--s-line);font-size:14px}.rmbulk.on{border-style:solid;border-color:#1faa59;background:rgba(31,170,89,.12)}
 .pinask{display:grid;gap:8px;border:2px solid #f5b400;background:rgba(245,180,0,.10);margin-bottom:12px}.pinask .sbtn{min-height:44px}
+/* Revisión del revendedor (20/11/2026): lo que molestaba en el celular. */
+/* Número de códigos en los botones de la bandeja: mínimo 12 px. */
+.mchip small{font-size:12px}
+.alfilt{margin:4px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.alpaused{font-size:13px;color:var(--s-warn,#f5b400);font-weight:600}

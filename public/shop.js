@@ -30,6 +30,7 @@ import { planInit, loadPlan, planCard, renewAllBox, planQrBox, planQrIds, svcTag
 import { fallasHelp, faqExtra, recoverHtml, pinHelpHtml, noLoginCode, switchLink, initClienteAyuda, REPORT_WHERE } from "/cliente-ayuda.js";
 import { initA11y, a11yView } from "/a11y-tienda.js";
 import { kindHelp } from "/codigos-ayuda.js";
+import { accLinksShown } from "/hub-codigos.js"; // el link por cuenta sigue a la cuenta elegida en la bandeja
 import { cargarHub, alCargarHub } from "/hub-perezoso.js";
 import { initHubSecretaria, loadHubSecretaria, loadHubComoVan, hubSecretariaView, hubComoVanView } from "/hub-perezoso.js"; // hub-secretaria.js: 🤵 Mi secretaria y 📈 Cómo van
 import { initHubCobros, loadHubCobros, hubCobrosHome, hubCobrosDia, payAllBtn } from "/hub-perezoso.js"; // hub-cobros.js: Anotar rápido, Me pagó todo, comprobantes
@@ -630,15 +631,18 @@ const agoTxt = (t) => { const m = Math.max(0, Math.floor((Date.now() - t) / 6e4)
 // 🔗 Links por cuenta (18/11/2026): un link para cada cliente, que abre directo la bandeja de SU cuenta. El revendedor
 // ve cuántos códigos sacó hoy (tope por día), el historial con la hora, y puede pausar o cambiar el link.
 function accLinksHtml() {
-  const L = S.data.accLinks?.accounts ?? [];
-  if (!L.length) return "";
-  const warn = L.filter((a) => a.over);
+  const all = S.data.accLinks?.accounts ?? [];
+  if (!all.length) return "";
+  const L = accLinksShown(all, S.data.cbox, S.data.cq); // sigue a la cuenta elegida arriba (hub-codigos.js)
+  const warn = all.filter((a) => a.over);
   return `<div class="sbox"><h2>🔗 Link de códigos por cuenta</h2><p class="empty" style="margin:0 0 8px">Mandale a cada cliente el link de SU cuenta: lo abre y ve su código, sin escribir nada. Máximo <b>${S.data.accLinks.cap} códigos por día por persona</b>: si una cuenta la usan varias personas, elegí cuántas y el tope sube solo. Si llega al tope, te avisamos acá.</p>
     ${warn.length ? `<div class="svc-owed" role="status"><span>⚠️ ${warn.map((a) => `<b>${esc(a.email.split("@")[0])}</b>`).join(", ")} ${warn.length === 1 ? "llegó" : "llegaron"} al tope de códigos de hoy. Fijate si no está compartiendo la cuenta.</span></div>` : ""}
+    ${L.length < all.length ? `<p class="empty alfilt" role="status">Mostrando ${L.length === 1 ? "el link de esta cuenta" : `${L.length} de ${all.length} cuentas`}. <button class="sbtn sm" type="button" data-cbox="">Ver todas</button></p>` : ""}
     ${L.map((a) => `<div class="alrow"><div class="altop"><div style="min-width:0"><b style="overflow-wrap:anywhere">${esc(a.email.split("@")[0])}</b><br><small class="empty">${esc((a.product || "").replace(/ \(alquiler revendedores\)/, ""))}</small></div><span class="spill ${a.over ? "sp-bad" : a.today ? "sp-warn" : "sp-mute"}">Hoy ${a.today}/${a.cap}${a.paused ? " · ⏸️ pausado" : ""}</span></div>
       <label class="alppl">👥 ¿Cuántas personas la usan?<select data-accppl="${esc(a.email)}" aria-label="Personas que usan ${esc(a.email)}">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${(a.people ?? 1) === n ? " selected" : ""}>${n}${n === 1 ? " persona" : " personas"} · ${n * S.data.accLinks.cap} por día</option>`).join("")}</select></label>
       <div class="rbtns">${a.url ? `<button class="sbtn sm pri" type="button" data-copy="${esc(a.url)}">Copiar link</button><a class="sbtn sm" href="${waLink("", `Tu código de ${(a.product || "tu cuenta").replace(/ \(alquiler revendedores\)/, "")} aparece acá solo, sin escribir nada 👇\n${a.url}`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a><button class="sbtn sm" type="button" data-acclink="${esc(a.email)}" data-accdo="${a.paused ? "play" : "pause"}">${a.paused ? "▶️ Activar" : "⏸️ Pausar"}</button><button class="sbtn sm" type="button" data-acclink="${esc(a.email)}" data-accdo="reset">Cambiar link</button>`
         : `<button class="sbtn sm pri" type="button" data-acclink="${esc(a.email)}" data-accdo="make">Crear link</button>`}</div>
+      ${a.paused ? `<small class="alpaused">⏸️ Pausado: tu cliente abre el link pero no ve códigos hasta que toques «Activar».</small>` : ""}
       ${a.log.length ? `<details class="howto"><summary>🕒 Códigos que vio (${a.log.length})</summary><div style="display:grid;gap:2px;padding-top:6px">${a.log.map((x) => `<small class="empty">${hhmm(x.at)} · ${KLABEL[x.kind] || "Código"}</small>`).join("")}</div></details>` : ""}</div>`).join("")}</div>`;
 }
 document.addEventListener("change", async (ev) => {
@@ -670,7 +674,7 @@ document.addEventListener("click", (ev) => {
   const b = ev.target.closest?.("[data-cbox]");
   if (!b) return;
   ev.stopPropagation();
-  S.data.cbox = b.dataset.cbox; render();
+  S.data.cbox = b.dataset.cbox; if (!b.dataset.cbox) S.data.cq = ""; render(); // «Todas»/«Ver todas» también limpia el buscador
 }, true);
 function inboxHtml() {
   const all = (S.data.codes ?? []).slice().sort((a, b) => b.receivedAt - a.receivedAt), q = (S.data.cq ?? "").trim().toLowerCase();
