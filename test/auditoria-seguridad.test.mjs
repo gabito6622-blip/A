@@ -147,3 +147,53 @@ describe("auditoría · «Ver mi código» en el link de cobro", () => {
     assert.ok(r.json.codes.every((c) => c.kind !== "cambio_correo"));
   });
 });
+
+describe("auditoría · Atención (seller) no se adueña de cuentas con plata", () => {
+  let w, sck, rev, rico, pobre;
+  before(async () => {
+    w = await boot();
+    rev = w.s.catalog.createCustomer(owner, { name: "Rev Uno", phone: "+59171000021", kind: "reseller", email: "rev@x.lat" });
+    rico = w.s.catalog.createCustomer(owner, { name: "Cliente Con Saldo", phone: "+59171000022" });
+    w.s.wallet.adjust(owner, rico.id, 5000, "saldo de prueba");
+    pobre = w.s.catalog.createCustomer(owner, { name: "Cliente Sin Saldo", phone: "+59171000023" });
+    await w.call("POST", "/api/admin/staff", { username: "seba", name: "Seba Ventas", role: "seller", password: "clave-larga-seller-1" }, w.ock);
+    sck = (await w.call("POST", "/api/auth/staff/login", { username: "seba", password: "clave-larga-seller-1" })).ck;
+  });
+  after(() => w.stop());
+
+  test("no cambia el correo ni el número de un revendedor o de un cliente con saldo (con eso pedía «Olvidé mi contraseña»)", async () => {
+    for (const [id, body] of [[rev.id, { email: "seba@x.lat" }], [rev.id, { phone: "+59179999999" }], [rico.id, { email: "seba@x.lat" }], [rico.id, { phone: "+59179999998" }]]) {
+      const r = await w.call("POST", `/api/admin/customers/${id}`, body, sck);
+      assert.equal(r.status, 403, JSON.stringify(body));
+    }
+    assert.equal(w.s.engine.s.customers[rev.id].email, "rev@x.lat");
+    assert.equal(w.s.engine.s.customers[rico.id].phone, "+59171000022");
+    // Guardar la ficha con los mismos datos (como hace el panel) y cambiar el nombre o la nota sí puede.
+    const same = await w.call("POST", `/api/admin/customers/${rev.id}`, { name: "Rev Uno Bis", phone: "+59171000021", email: "rev@x.lat", notes: "llamar" }, sck);
+    assert.equal(same.status, 200);
+    assert.equal(same.json.name, "Rev Uno Bis");
+    // Un cliente sin saldo: Atención lo atiende como siempre.
+    assert.equal((await w.call("POST", `/api/admin/customers/${pobre.id}`, { email: "nuevo@x.lat", phone: "+59179999997" }, sck)).status, 200);
+    // El dueño sí.
+    assert.equal((await w.call("POST", `/api/admin/customers/${rev.id}`, { email: "rev2@x.lat" }, w.ock)).status, 200);
+  });
+});
+
+describe("auditoría · Atención no elige precios de revendedor al crear un cliente", () => {
+  let w, sck;
+  before(async () => {
+    w = await boot();
+    w.s.catalog.upsertPriceGroup(owner, { id: "revendedor", name: "Revendedor", prices: {} });
+    await w.call("POST", "/api/admin/staff", { username: "seba", name: "Seba Ventas", role: "seller", password: "clave-larga-seller-1" }, w.ock);
+    sck = (await w.call("POST", "/api/auth/staff/login", { username: "seba", password: "clave-larga-seller-1" })).ck;
+  });
+  after(() => w.stop());
+
+  test("con lista de revendedor → 403; sin lista (lo que manda el panel) → se crea con precio normal", async () => {
+    assert.equal((await w.call("POST", "/api/admin/customers", { name: "Amigo", phone: "+59171000031", priceGroupId: "revendedor" }, sck)).status, 403);
+    const ok = await w.call("POST", "/api/admin/customers", { name: "Amigo", phone: "+59171000031" }, sck);
+    assert.equal(ok.status, 200);
+    assert.equal(ok.json.priceGroupId, "final");
+    assert.equal((await w.call("POST", "/api/admin/customers", { name: "Otro", phone: "+59171000032", priceGroupId: "revendedor" }, w.ock)).status, 200, "el dueño sí");
+  });
+});
