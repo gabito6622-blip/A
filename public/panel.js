@@ -3980,7 +3980,8 @@ document.addEventListener("submit", async (ev) => {
         }
         P.tab.rlink = await resellerKit(c.id, c.name, c.phone, slug);
         toast(pageErr ? `Revendedor creado, pero su página no: ${pageErr}` : f.plan.value === "page" ? "Revendedor creado con su página" : "Revendedor creado (solo panel)");
-        await render(); scrollTo(0, 0);
+        // 20/11: la tarjeta «✅ Listo · Mandarle todo por WhatsApp» quedaba debajo de Cobrar e Invitar, fuera de la vista.
+        await render(); scrollTo(0, 0); $("#rsent")?.scrollIntoView({ block: "start" });
       } catch (e) { toast(e.message); btn.disabled = false; }
     } else if (f.id === "bulkRes") {
       const pct = Number(f.pct.value);
