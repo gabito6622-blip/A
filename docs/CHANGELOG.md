@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-21 · 🔍 Revisión completa con 4 equipos (sin publicar)
+- **Seguridad:** el PIN ya no se puede adivinar cambiando cómo se escribe el número (freno por persona + tope por conexión); el link de cobro no muestra el código de «cambiar correo»; Atención no cambia correo ni número de revendedores o clientes con saldo; el código por WhatsApp va al número guardado; la página pública del revendedor no muestra su suscripción.
+- **Cliente final:** error del pago con QR a la vista junto al campo; botón de WhatsApp que no tapa Copiar ni Renovar; el link de códigos recuerda el correo (no el PIN); etiquetas que no tapan el logo a 360 px; bandeja «Netflix · nf02»; WhatsApp «+591 70000000».
+- **Revendedor:** el link por cuenta sigue a la cuenta elegida; PIN nuevo dos veces con el error a la vista; «Venció el» en vez de «Te anda hasta» una fecha pasada; montos del saldo alineados; «Por renovar» igual en Inicio y en Clientes.
+- **Panel del dueño:** Inicio muestra de verdad «🏠 Para hacer hoy» (fallaba en silencio); al vender a un revendedor el total dice su precio real; el acceso del revendedor nuevo queda a la vista; «Cuenta caída» trae el motivo y no se corta; la carga rápida va primero; títulos enteros a 360/390 px; botones de 44 px en Tablero y Dashboard.
+
 ## 2026-11-20 · 🔐 «Elegí tu propio PIN» para revendedores (sin publicar)
 - **Por qué:** el dueño: «yo les doy el número y su PIN; que después lo cambien y se sientan cómodos».
 - Si el PIN se lo dio la tienda, el revendedor ve en su inicio «🔐 Elegí tu propio PIN» (con «Crear contraseña» si no tiene). Al cambiarlo, desaparece; si el dueño le da otro PIN, vuelve.

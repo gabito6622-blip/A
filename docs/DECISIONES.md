@@ -526,3 +526,8 @@ Cada decisión: fecha · qué se decidió · por qué · alternativas descartada
 - **Precios que cambian cada día:** se usa «💲 Precios del día» (ya existía, 16/11) en vez de tocar cuenta por cuenta; canaviry (deuda) y MZA (sin ESPN) quedaron con precio fijo.
 - **Planes:** Gratis y Bots siguen gratis; Vendedor Bs 25 y Negocio Bs 49 se cargan apagados hasta que el dueño prenda el cobro.
 - **Avisos programados con la llave en el texto:** el dueño eligió que lo decidiera yo; la llave quedó en el texto de los 2 avisos diarios (visible solo para su cuenta). Si la renueva, hay que actualizar esos avisos.
+
+## 2026-11-21 · Revisión completa con 4 equipos
+- Los frenos de ingreso cuentan por persona, no por cómo se escribe el número ni solo por IP. Un PIN nuevo dado por la tienda levanta el bloqueo.
+- El link de códigos guarda solo el correo en el celular, nunca el PIN ni abre solo.
+- El total de «Vender» sale del presupuesto del servidor (lo mismo que se cobra), no de un cálculo en la pantalla.
