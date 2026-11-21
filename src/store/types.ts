@@ -244,6 +244,8 @@ export interface Supplier {
 /** Cuenta maestra comprada a un proveedor. Contiene uno o más perfiles (slots). */
 export interface Account {
   id: Id;
+  /** ✅ «La revisé: está libre» (20/11/2026): cuándo el dueño confirmó a mano que los lugares libres están de verdad libres. */
+  freeCheckedAt?: number;
   productId: Id;
   supplierId: Id;
   email: string;

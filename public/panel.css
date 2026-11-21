@@ -1517,3 +1517,4 @@ label.qwarn{display:flex;gap:8px;align-items:center;min-height:44px}
 .newaccf input,.newaccf select{min-height:44px;font-size:16px}
 .sellquick .sqfull{grid-column:1/-1}
 .bulklist{display:grid;gap:6px;margin-bottom:10px}.bulkrow{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.afree{margin:4px 0;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.afree.ok{color:#1a9a50;font-weight:700}.afree .pbtn{min-height:44px}

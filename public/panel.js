@@ -1140,6 +1140,7 @@ const V = {
     const aq = (P.tab.accq ?? "").trim().toLowerCase();
     const matchQ = (a) => !aq || `${a.email} ${pname(a.productId)} ${a.slots.map((s) => s.customerName || "").join(" ")}`.toLowerCase().includes(aq);
     const shownAccs = accs.filter(matchF).filter(matchQ);
+    if (af === "libres") shownAccs.sort((x, y) => (y.freeCheckedAt ? 1 : 0) - (x.freeCheckedAt ? 1 : 0)); // ✅ confirmadas primero
     // 🧹 Cuentas caídas sin clientes (pedido del dueño, 12/11/2026): vencidas y sin nadie adentro. Las retira EL
     // DUEÑO con un toque; usa la misma acción de "Cuenta caída → Mover clientes y retirar" de cada cuenta.
     const caidas = canReview() ? accs.filter((a) => a.status === "active" && (a.supplierExpiresAt <= Date.now() || a.fallen) && !a.slots.some((s2) => s2.status === "assigned" || s2.status === "reserved")) : [];
@@ -1157,6 +1158,7 @@ const V = {
       return `<article class="acard">
         <header><div class="ahead">${svbadge(a)}<div><b>${esc(pname(a.productId))}</b><small class="mono">${esc(a.email)}</small></div></div><span class="ahpills">${riskPill(a.risk)}${a.status !== "active" ? pill("Retirada", "mute") : a.sellBlock ? pill(a.fallen ? "⚠️ Caída" : "🚫 No se vende", "bad") : pill(`${libres} libre${libres === 1 ? "" : "s"}`, libres ? "ok" : "mute")}</span></header>
         ${a.risk?.reasons?.length ? `<p class="arisk ${a.risk.level}">${a.risk.level === "bad" ? "🔴" : "🟡"} ${esc(a.risk.reasons.join(" · "))}</p>` : ""}
+        ${canReview() && a.status === "active" && !a.sellBlock && libres ? (a.freeCheckedAt ? `<p class="afree ok">✅ Revisada libre el ${esc(fdt(a.freeCheckedAt).split(",")[0])} <button class="linkbtn" type="button" data-freecheck="${esc(a.id)}" data-ok="0">quitar</button></p>` : `<p class="afree"><button class="pbtn sm" type="button" data-freecheck="${esc(a.id)}" data-ok="1">✅ La revisé: está libre</button> <small class="muted">sin confirmar</small></p>`) : ""}
         ${accBanner(a)}${a.notes ? `<p class="anote">📝 ${esc(a.notes)}</p>` : ""}
         <div class="arow"><span class="muted">🔑 Clave</span><b class="mono">${esc(a.password)}</b></div>
         <div class="arow"><span class="muted">🏷️ Proveedor</span><span>${esc(a.supplierId === "propias" ? "Propia (tuya)" : suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</span></div>
@@ -4144,4 +4146,14 @@ document.addEventListener("click", async (ev) => {
 document.addEventListener("change", (ev) => {
   if (ev.target?.name !== "naProd") return;
   const lab = $("#newAccForm .naProfs"); if (lab) lab.hidden = ev.target.selectedOptions[0]?.dataset.kind !== "profile";
+}, true);
+
+// ✅ «La revisé: está libre» (20/11/2026): el dueño confirma a mano que nadie usa los lugares libres de la cuenta.
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest?.("[data-freecheck]");
+  if (!b) return;
+  ev.preventDefault(); ev.stopPropagation();
+  b.disabled = true;
+  try { await api("POST", `/api/admin/accounts/${encodeURIComponent(b.dataset.freecheck)}/free-check`, { ok: b.dataset.ok === "1" }); toast(b.dataset.ok === "1" ? "✅ Marcada como libre revisada" : "Quitado"); await render(); }
+  catch (e) { toast(e.message); b.disabled = false; }
 }, true);
