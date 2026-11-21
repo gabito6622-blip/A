@@ -17,6 +17,7 @@ import { initDescargas, descargasEnsure, descargasView, descargasClick, descarga
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
 import { cargarCard } from "/panel-cargar.js";
 import { secretaryView } from "/secretaria.js";
+import { fitTitle } from "/titulo-ajuste.js"; // título de arriba entero en el celular
 import { splitTxt, cutTxt, controlRenew, swapOptionsHtml, confirmSwap, initSellNew, sellNewHint, sellCustomer, sellDupCheck, renewFlow, switchPlatHtml, setRerender } from "/dia.js";
 import { matches } from "/buscar.js";
 import { selfCodesCard } from "/panel-codigos-solos.js";
@@ -2516,7 +2517,7 @@ async function render() {
   P.lastPend = pend;
   $("#menu").innerHTML = menuHtml(pend);
   const [ti, tt] = TITLE[P.view];
-  $("#ptitle").innerHTML = icon(ti) + tt;
+  $("#ptitle").innerHTML = icon(ti) + tt; fitTitle($("#ptitle"));
   // Barra de abajo: Inicio, Clientes, Vender, Inventario y Más (lo demás se marca en "Más").
   const INV = ["cuentas", "carga", "reubicar", "codigos", "productos", "cupones", "proveedores"];
   const bnavFor = ["inicio", "vender", "clientes"].includes(P.view) ? P.view : INV.includes(P.view) ? "cuentas" : P.view === "fallas" && P.me && !canReview() ? "fallas" : "more";
