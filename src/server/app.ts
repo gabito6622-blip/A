@@ -122,7 +122,7 @@ export interface AppConfig {
   /** Clave para cifrar las contraseñas de las cuentas en la base (GS_DATA_KEY). */
   dataKey?: string;
   /** true detrás de un proxy de confianza (Render, Railway, Cloudflare): usa X-Forwarded-For para los límites. */
-  trustProxy?: boolean;
+  trustProxy?: boolean | "cloudflare";
 }
 
 const HOUR = 3_600_000;
@@ -2924,7 +2924,11 @@ export function createApp(cfg: AppConfig): App {
     // HSTS solo con HTTPS de verdad (en local con http rompería el acceso).
     if (cfg.secureCookies) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     const url = new URL(req.url ?? "/", "http://local");
-    const fwd = cfg.trustProxy ? String(req.headers["cf-connecting-ip"] ?? req.headers["x-forwarded-for"] ?? "").split(",")[0].trim() : "";
+    // 21/11/2026 (auditoría): la tienda está directo en Railway, sin Cloudflare. Railway AGREGA la IP real al FINAL de
+    // X-Forwarded-For; lo de adelante lo puede inventar cualquiera y servía para saltarse los frenos. Se usa la última.
+    // CF-Connecting-IP solo si se configura GS_TRUST_PROXY=cloudflare (y entonces el servidor tiene que estar detrás de Cloudflare).
+    const xff = String(req.headers["x-forwarded-for"] ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+    const fwd = !cfg.trustProxy ? "" : cfg.trustProxy === "cloudflare" ? String(req.headers["cf-connecting-ip"] ?? "").trim() || (xff.at(-1) ?? "") : (xff.at(-1) ?? "");
     const ip = fwd || (req.socket.remoteAddress ?? "?");
     try {
       if (!url.pathname.startsWith("/api/")) {

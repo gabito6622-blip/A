@@ -58,9 +58,12 @@ describe("IP real detrás de un proxy", () => {
   test("con trustProxy cada cliente real tiene su propio límite", async () => {
     const s = await start({ trustProxy: true });
     try {
-      for (let i = 0; i < 11; i++) assert.equal((await askCode(s, i, { "x-forwarded-for": `10.0.0.${i}, 172.16.0.1` })).status, 200);
+      // 21/11/2026: Railway agrega la IP real AL FINAL; lo de adelante lo inventa quien quiera y no cuenta.
+      for (let i = 0; i < 11; i++) assert.equal((await askCode(s, i, { "x-forwarded-for": `172.16.0.1, 10.0.0.${i}` })).status, 200);
       for (let i = 11; i < 21; i++) assert.equal((await askCode(s, i, { "x-forwarded-for": "10.9.9.9" })).status, 200);
       assert.equal((await askCode(s, 21, { "x-forwarded-for": "10.9.9.9" })).status, 429);
+      // El tramposo que inventa una IP distinta adelante en cada pedido igual queda frenado (cuenta la de Railway).
+      assert.equal((await askCode(s, 22, { "x-forwarded-for": "99.99.99.22, 10.9.9.9" })).status, 429);
     } finally { await s.stop(); }
   });
 });
