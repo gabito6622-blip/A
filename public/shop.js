@@ -31,6 +31,8 @@ import { formError, mailChipLabels, prettyPhone } from "/cliente-final.js";
 import { fallasHelp, faqExtra, recoverHtml, pinHelpHtml, noLoginCode, switchLink, initClienteAyuda, REPORT_WHERE } from "/cliente-ayuda.js";
 import { initA11y, a11yView } from "/a11y-tienda.js";
 import { kindHelp } from "/codigos-ayuda.js";
+import { myPinFields, myPinProblem, myPinError } from "/hub-pin.js"; // cambiar PIN: dos veces y error a la vista
+import { accLinksShown } from "/hub-codigos.js"; // el link por cuenta sigue a la cuenta elegida en la bandeja
 import { cargarHub, alCargarHub } from "/hub-perezoso.js";
 import { initHubSecretaria, loadHubSecretaria, loadHubComoVan, hubSecretariaView, hubComoVanView } from "/hub-perezoso.js"; // hub-secretaria.js: 🤵 Mi secretaria y 📈 Cómo van
 import { initHubCobros, loadHubCobros, hubCobrosHome, hubCobrosDia, payAllBtn } from "/hub-perezoso.js"; // hub-cobros.js: Anotar rápido, Me pagó todo, comprobantes
@@ -631,15 +633,18 @@ const agoTxt = (t) => { const m = Math.max(0, Math.floor((Date.now() - t) / 6e4)
 // 🔗 Links por cuenta (18/11/2026): un link para cada cliente, que abre directo la bandeja de SU cuenta. El revendedor
 // ve cuántos códigos sacó hoy (tope por día), el historial con la hora, y puede pausar o cambiar el link.
 function accLinksHtml() {
-  const L = S.data.accLinks?.accounts ?? [];
-  if (!L.length) return "";
-  const warn = L.filter((a) => a.over);
+  const all = S.data.accLinks?.accounts ?? [];
+  if (!all.length) return "";
+  const L = accLinksShown(all, S.data.cbox, S.data.cq); // sigue a la cuenta elegida arriba (hub-codigos.js)
+  const warn = all.filter((a) => a.over);
   return `<div class="sbox"><h2>🔗 Link de códigos por cuenta</h2><p class="empty" style="margin:0 0 8px">Mandale a cada cliente el link de SU cuenta: lo abre y ve su código, sin escribir nada. Máximo <b>${S.data.accLinks.cap} códigos por día por persona</b>: si una cuenta la usan varias personas, elegí cuántas y el tope sube solo. Si llega al tope, te avisamos acá.</p>
     ${warn.length ? `<div class="svc-owed" role="status"><span>⚠️ ${warn.map((a) => `<b>${esc(a.email.split("@")[0])}</b>`).join(", ")} ${warn.length === 1 ? "llegó" : "llegaron"} al tope de códigos de hoy. Fijate si no está compartiendo la cuenta.</span></div>` : ""}
+    ${L.length < all.length ? `<p class="empty alfilt" role="status">Mostrando ${L.length === 1 ? "el link de esta cuenta" : `${L.length} de ${all.length} cuentas`}. <button class="sbtn sm" type="button" data-cbox="">Ver todas</button></p>` : ""}
     ${L.map((a) => `<div class="alrow"><div class="altop"><div style="min-width:0"><b style="overflow-wrap:anywhere">${esc(a.email.split("@")[0])}</b><br><small class="empty">${esc((a.product || "").replace(/ \(alquiler revendedores\)/, ""))}</small></div><span class="spill ${a.over ? "sp-bad" : a.today ? "sp-warn" : "sp-mute"}">Hoy ${a.today}/${a.cap}${a.paused ? " · ⏸️ pausado" : ""}</span></div>
       <label class="alppl">👥 ¿Cuántas personas la usan?<select data-accppl="${esc(a.email)}" aria-label="Personas que usan ${esc(a.email)}">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${(a.people ?? 1) === n ? " selected" : ""}>${n}${n === 1 ? " persona" : " personas"} · ${n * S.data.accLinks.cap} por día</option>`).join("")}</select></label>
       <div class="rbtns">${a.url ? `<button class="sbtn sm pri" type="button" data-copy="${esc(a.url)}">Copiar link</button><a class="sbtn sm" href="${waLink("", `Tu código de ${(a.product || "tu cuenta").replace(/ \(alquiler revendedores\)/, "")} aparece acá solo, sin escribir nada 👇\n${a.url}`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a><button class="sbtn sm" type="button" data-acclink="${esc(a.email)}" data-accdo="${a.paused ? "play" : "pause"}">${a.paused ? "▶️ Activar" : "⏸️ Pausar"}</button><button class="sbtn sm" type="button" data-acclink="${esc(a.email)}" data-accdo="reset">Cambiar link</button>`
         : `<button class="sbtn sm pri" type="button" data-acclink="${esc(a.email)}" data-accdo="make">Crear link</button>`}</div>
+      ${a.paused ? `<small class="alpaused">⏸️ Pausado: tu cliente abre el link pero no ve códigos hasta que toques «Activar».</small>` : ""}
       ${a.log.length ? `<details class="howto"><summary>🕒 Códigos que vio (${a.log.length})</summary><div style="display:grid;gap:2px;padding-top:6px">${a.log.map((x) => `<small class="empty">${hhmm(x.at)} · ${KLABEL[x.kind] || "Código"}</small>`).join("")}</div></details>` : ""}</div>`).join("")}</div>`;
 }
 document.addEventListener("change", async (ev) => {
@@ -671,7 +676,7 @@ document.addEventListener("click", (ev) => {
   const b = ev.target.closest?.("[data-cbox]");
   if (!b) return;
   ev.stopPropagation();
-  S.data.cbox = b.dataset.cbox; render();
+  S.data.cbox = b.dataset.cbox; if (!b.dataset.cbox) S.data.cq = ""; render(); // «Todas»/«Ver todas» también limpia el buscador
 }, true);
 function inboxHtml() {
   const all = (S.data.codes ?? []).slice().sort((a, b) => b.receivedAt - a.receivedAt), q = (S.data.cq ?? "").trim().toLowerCase();
@@ -800,7 +805,7 @@ function renderInner() {
           : [50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small>${usdtHint(v * 100)}</label>`).join("")}</div>
         <p class="tstep">2 · Pagá</p>${S.settings.usdt ? `<fieldset class="tmethod"><legend>¿Cómo pagás?</legend>${abroad() ? "" : `<label><input type="radio" name="tm" value="qr" checked><span>QR de banco (Bolivia)</span></label>`}<label><input type="radio" name="tm" value="usdt" ${abroad() ? "checked" : ""}><span>USDT por Binance</span></label></fieldset>` : ""}
         <div id="tmQr" ${abroad() ? "hidden" : ""}>${qrBlock()}</div>${S.settings.usdt ? `<div id="tmUsdt" ${abroad() ? "" : "hidden"}>${abroad() ? usdtBlock(0, 20) : usdtBlock(10000)}</div>` : ""}<p class="tstep">3 · Subí el comprobante</p><label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label><span id="tmRefLbl">${abroad() ? "Hash o número de la transacción" : "Número de operación"}</span><input name="ref" required placeholder="${abroad() ? "Pegá el hash de Binance" : "Ej.: 123456789"}"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>`}
-      <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().slice(0, S.data.ledgerAll ? undefined : 30).map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página", referral: "🎁 Premio por traer un revendedor" }[m.type] ?? m.type)}<br><small class="empty">${esc(m.label || m.note || "")}${m.label || m.note ? " · " : ""}${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") + (!S.data.ledgerAll && S.data.ledger.length > 30 ? `<button class="sbtn sm" type="button" data-ledgerall="1" style="justify-self:start">Ver todos (${S.data.ledger.length})</button>` : "") : `<p class="empty">Sin movimientos.</p>`}</div>`,
+      <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().slice(0, S.data.ledgerAll ? undefined : 30).map((m) => `<div class="line lmov"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página", referral: "🎁 Premio por traer un revendedor" }[m.type] ?? m.type)}<br><small class="empty">${esc(m.label || m.note || "")}${m.label || m.note ? " · " : ""}${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") + (!S.data.ledgerAll && S.data.ledger.length > 30 ? `<button class="sbtn sm" type="button" data-ledgerall="1" style="justify-self:start">Ver todos (${S.data.ledger.length})</button>` : "") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     vender: () => !isReseller() ? needLogin("tu panel") : hubVender(),
     inventario: () => !isReseller() ? needLogin("tu inventario") : hubInventario(),
     mas: () => !isReseller() ? needLogin("tu panel") : hubMas(),
@@ -1359,7 +1364,7 @@ function resellerView() {
   const listText = prices.filter((p) => p.sell !== null).map((p) => `• ${p.name}: ${sellText(p.sell)} (${periodText(p.durationDays)})`).join("\n");
 
   return `<div class="sec-h"><div><span class="chip">Revendedor</span><h2>Mi panel de revendedor</h2><p>Vendé y renová para tus clientes con tu saldo, a precio de revendedor. Todo queda a tu nombre.</p></div><button class="sbtn" type="button" data-s="recargas">${icon("coins")}Recargar saldo</button></div>
-    <div class="rkpis"><div><span>Mi saldo</span><b>${bs(S.me.balance)}</b></div><div><span>Clientes</span><b>${clients.length}</b></div><div><span>Servicios activos</span><b>${svc.length}</b></div><div class="${soon.length ? "warn" : ""}"><span>Vencen en 7 días</span><b>${soon.length}</b></div></div>
+    <div class="rkpis"><div><span>Mi saldo</span><b>${bs(S.me.balance)}</b></div><div><span>Clientes</span><b>${clients.length}</b></div><div><span>Servicios activos</span><b>${svc.length}</b></div><div class="${soon.length ? "warn" : ""}"><span>Por renovar</span><b>${soon.length}</b></div></div>
 
     ${last.length ? `<div class="sbox rdone"><h2>✅ Venta lista: mandale estos datos a ${esc(byId[last[0].customerId].name)}</h2>${last.map((a) => `<pre class="rpre">${esc(accessText(a))}</pre>`).join("")}
       <div class="rbtns"><button class="sbtn sm pri" type="button" data-copy="${esc(last.map(accessText).join("\n\n"))}">Copiar datos</button><a class="sbtn sm" href="${waLink(byId[last[0].customerId].phone, last.map(accessText).join("\n\n"))}" target="_blank" rel="noopener">${icon("wa")}Mandar por WhatsApp</a><button class="sbtn sm" type="button" data-rclear="1">Listo</button></div></div>` : ""}
@@ -1376,7 +1381,7 @@ function resellerView() {
       <p class="empty" id="sellSum" style="margin:0">Elegí cliente y producto.</p>
       <button class="sbtn pri" type="submit">Comprar con mi saldo</button></form>`}
 
-    <div class="sbox"><h2>Por vencer <span class="spill ${soon.length ? "sp-warn" : "sp-mute"}">${soon.length}</span></h2>
+    <div class="sbox"><h2>Por renovar <span class="spill ${soon.length ? "sp-warn" : "sp-mute"}">${soon.length}</span></h2>
       ${soon.length ? soon.map((a) => svcRow(a, true)).join("") : `<p class="empty">Ningún cliente vence en los próximos 7 días. 👌</p>`}</div>
 
     <div class="sbox"><h2>Mis clientes <span class="spill sp-mute">${rowsAll.length}</span></h2>
@@ -1592,7 +1597,7 @@ function securityView() {
     <section class="sbox"><h2>📱 Dónde está abierta (${sec.sessions.length})</h2>${sess || `<p class="empty">No hay sesiones abiertas.</p>`}
       ${others ? `<button class="sbtn pri" type="button" data-secothers="1">🚪 Cerrar todas las demás (${others})</button>` : ""}</section>
     <section class="sbox"><h2>🔑 Cambiar mi PIN</h2><p class="empty" style="margin:0">Al cambiarlo, se cierran solos los otros aparatos.</p>
-      <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="current-password"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000" autocomplete="new-password"></label><button class="sbtn" type="submit" style="grid-column:1/-1">Cambiar PIN</button></form></section>
+      <form class="sform mypin" id="myPin">${myPinFields()}</form></section>
     <section class="sbox"><h2>🕘 Últimos movimientos</h2>${log || `<p class="empty">Todavía no hay movimientos.</p>`}</section>
     <p class="empty" style="font-size:13px">Tus datos y los de tus clientes son solo tuyos: nadie más que vos y la tienda los ve. Si perdiste el celular, pedile a la tienda que cierre tu cuenta en todos lados.</p>`;
 }
@@ -1697,7 +1702,7 @@ function resellerHome() {
     ${hubPanel() ? appCard() : ""}
     ${referralCard(S.data.referrals)}
     <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás con tu número y tu PIN de 4 números${me.email && me.hasPassword ? `, o con tu correo <b>${esc(me.email)}</b> y tu contraseña` : ". Si querés, creá una contraseña para entrar también con tu correo"}.</p>
-      <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn" type="submit">Cambiar PIN</button></form>
+      <form class="sform mypin" id="myPin">${myPinFields()}</form>
       <button class="sbtn" type="button" data-pwd="1" style="justify-self:start">📧 ${me.hasPassword ? "Cambiar mi correo o contraseña" : "Crear mi contraseña"}</button></div>
     </details>`;
 }
@@ -3088,7 +3093,13 @@ document.addEventListener("submit", async (ev) => {
       toast("Listo: ya podés entrar con tu correo y contraseña ✓");
       await refresh();
     } else if (f.id === "myPin") {
-      const r = await api("POST", "/api/me/login-pin", { current: f.current.value.trim(), pin: f.pin.value.trim() });
+      // PIN nuevo dos veces y el error junto al formulario, no en un aviso que se va (hub-pin.js).
+      const bad = myPinProblem({ current: f.current.value, pin: f.pin.value, pin2: f.pin2?.value ?? f.pin.value });
+      myPinError(f, bad);
+      if (bad) { btn.disabled = false; return (/4 números/.test(bad) ? f.pin : f.pin2 ?? f.pin).focus(); }
+      let r;
+      try { r = await api("POST", "/api/me/login-pin", { current: f.current.value.trim(), pin: f.pin.value.trim() }); }
+      catch (e) { myPinError(f, e.message); btn.disabled = false; return f.current.focus(); }
       f.reset();
       if (S.me) { delete S.me.pinFromStore; render(); }
       toast(r?.closed ? `PIN cambiado ✓ · se cerraron ${r.closed} aparato(s)` : "PIN cambiado ✓");
